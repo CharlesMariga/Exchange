@@ -1,3 +1,5 @@
+import { EVM_REVERT, tokens } from "./helper";
+
 // eslint-disable-next-line no-undef
 const Token = artifacts.require("./Token");
 
@@ -8,13 +10,11 @@ contract("Token", ([deployer, receiver]) => {
   const name = "DappToken";
   const symbol = "DAPP";
   const decimals = 18;
-  const totalSupply = (1000000 * Math.pow(10, 18)).toLocaleString("fullwide", {
-    useGrouping: false,
-  });
+  const totalSupply = 1000000;
   let token;
 
   beforeEach(async () => {
-    token = await Token.new(totalSupply);
+    token = await Token.new(tokens(totalSupply));
   });
 
   describe("deployment", () => {
@@ -35,24 +35,70 @@ contract("Token", ([deployer, receiver]) => {
 
     it("tracks the total supply", async () => {
       const result = await token.totalSupply();
-      result
-        .toString()
-        .should.equal(
-          totalSupply.toLocaleString("fullwide", { useGrouping: false })
-        );
+      result.toString().should.equal(tokens(totalSupply).toString());
     });
 
     it("assigns the total supply to the deployer", async () => {
       const result = await token.balanceOf(deployer);
-      result
-        .toString()
-        .should.equal(
-          totalSupply.toLocaleString("fullwide", { useGrouping: false })
-        );
+      result.toString().should.equal(tokens(totalSupply).toString());
     });
   });
 
   describe("sending tokens", () => {
-    it("transfers token balances", async () => {});
+    let amount;
+    let result;
+
+    describe("success", () => {
+      beforeEach(async () => {
+        amount = tokens(100);
+        result = await token.transfer(receiver, amount, {
+          from: deployer,
+        });
+      });
+
+      it("transfers token balances", async () => {
+        let balanceOfDeployer = await token.balanceOf(deployer);
+        let balanceOfReceiver = await token.balanceOf(receiver);
+        balanceOfDeployer
+          .toString()
+          .should.equal(tokens(totalSupply - 100).toString());
+        balanceOfReceiver.toString().should.equal(tokens(100).toString());
+      });
+
+      it("emits a transfer event", async () => {
+        const {
+          event,
+          args: { _from, _to, _value },
+        } = result.logs[0];
+        event.should.equal("Transfer");
+        _from
+          .toString()
+          .should.equal(deployer.toString(), "from is not correct");
+        _to.toString().should.equal(receiver.toString(), "to is not correct");
+        _value
+          .toString()
+          .should.equal(amount.toString(), "value is not correct");
+      });
+    });
+
+    describe("failure", () => {
+      it("rejects insufficient balances", async () => {
+        let invalideAmount = tokens(100000000);
+        await token
+          .transfer(receiver, invalideAmount, { from: deployer })
+          .should.be.rejectedWith(EVM_REVERT);
+
+        // Attempts to transfer tokens when you have none
+        invalideAmount = tokens(10);
+        await token
+          .transfer(deployer, invalideAmount, { from: receiver })
+          .should.be.rejectedWith(EVM_REVERT);
+      });
+
+      it("rejects invalid recipients", async () => {
+        await token.transfer(0x0, amount, { from: deployer }).should.be
+          .rejected;
+      });
+    });
   });
 });
