@@ -4,7 +4,7 @@ const Token = artifacts.require("./Token");
 require("chai").use(require("chai-as-promised")).should();
 
 // eslint-disable-next-line no-undef
-contract("Token", (accounts) => {
+contract("Token", ([deployer, receiver]) => {
   const name = "DappToken";
   const symbol = "DAPP";
   const decimals = 18;
@@ -41,5 +41,18 @@ contract("Token", (accounts) => {
           totalSupply.toLocaleString("fullwide", { useGrouping: false })
         );
     });
+
+    it("assigns the total supply to the deployer", async () => {
+      const result = await token.balanceOf(deployer);
+      result
+        .toString()
+        .should.equal(
+          totalSupply.toLocaleString("fullwide", { useGrouping: false })
+        );
+    });
+  });
+
+  describe("sending tokens", () => {
+    it("transfers token balances", async () => {});
   });
 });
