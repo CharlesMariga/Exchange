@@ -6,7 +6,7 @@ const Token = artifacts.require("./Token");
 require("chai").use(require("chai-as-promised")).should();
 
 // eslint-disable-next-line no-undef
-contract("Token", ([deployer, receiver]) => {
+contract("Token", ([deployer, receiver, exchange]) => {
   const name = "DappToken";
   const symbol = "DAPP";
   const decimals = 18;
@@ -100,5 +100,24 @@ contract("Token", ([deployer, receiver]) => {
           .rejected;
       });
     });
+  });
+
+  describe("approving tokens", () => {
+    let amount;
+    let result;
+
+    beforeEach(async () => {
+      amount = tokens(100);
+      result = await token.approve(exchange, amount, { from: deployer });
+    });
+
+    describe("success", () => {
+      it("allocates an allowance for delegated token spending", async () => {
+        const allowance = await token.allowance(deployer, exchange);
+        allowance.toString().should.equal(amount.toString());
+      });
+    });
+
+    describe("failure", () => {});
   });
 });
