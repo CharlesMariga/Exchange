@@ -65,7 +65,7 @@ contract("Token", ([deployer, receiver, exchange]) => {
         balanceOfReceiver.toString().should.equal(tokens(100).toString());
       });
 
-      it("emits a transfer event", async () => {
+      it("emits a Transfer event", async () => {
         const {
           event,
           args: { _from, _to, _value },
@@ -116,8 +116,30 @@ contract("Token", ([deployer, receiver, exchange]) => {
         const allowance = await token.allowance(deployer, exchange);
         allowance.toString().should.equal(amount.toString());
       });
+
+      it("emits an Approval event", async () => {
+        const {
+          event,
+          args: { _owner, _spender, _value },
+        } = result.logs[0];
+        event.should.equal("Approval");
+        _owner
+          .toString()
+          .should.equal(deployer.toString(), "owner is not correct");
+        _spender
+          .toString()
+          .should.equal(exchange.toString(), "spender is not correct");
+        _value
+          .toString()
+          .should.equal(amount.toString(), "value is not correct");
+      });
     });
 
-    describe("failure", () => {});
+    describe("failure", () => {
+      it("rejects invalid spender", async () => {
+        await token.approve(0x0, amount, { fromm: deployer }).should.be
+          .rejected;
+      });
+    });
   });
 });

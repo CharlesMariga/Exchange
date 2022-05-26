@@ -14,6 +14,7 @@ contract Token {
   mapping(address => mapping(address => uint256)) public allowance;
 
   event Transfer(address indexed _from, address indexed _to, uint256 _value);
+  event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 
   constructor(uint256 _totalSupply) {
     totalSupply = _totalSupply;
@@ -30,7 +31,13 @@ contract Token {
   }
 
   function approve(address _spender, uint256 _value) public returns (bool success) {
+    require(_spender != address(0));
     allowance[msg.sender][_spender] = _value;
+    emit Approval(msg.sender, _spender, _value);
+    return true;
+  }
+
+  function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) { 
     return true;
   }
 }
