@@ -142,4 +142,65 @@ contract("Token", ([deployer, receiver, exchange]) => {
       });
     });
   });
+
+  describe("delegated token transfers", () => {
+    let amount;
+    let result;
+
+    beforeEach(async () => {
+      amount = tokens(100);
+      await token.approve(exchange, amount, { from: deployer });
+    });
+
+    describe("success", () => {
+      beforeEach(async () => {
+        result = await token.transferFrom(deployer, receiver, amount, {
+          from: exchange,
+        });
+      });
+
+      it("transfers token balances", async () => {
+        let balanceOfDeployer = await token.balanceOf(deployer);
+        let balanceOfReceiver = await token.balanceOf(receiver);
+        balanceOfDeployer
+          .toString()
+          .should.equal(tokens(totalSupply - 100).toString());
+        balanceOfReceiver.toString().should.equal(tokens(100).toString());
+      });
+
+      it("resets the allowance", async () => {
+        const allowance = await token.allowance(deployer, exchange);
+        allowance.toString().should.equal("0");
+      });
+
+      it("emits a Transfer event", async () => {
+        const {
+          event,
+          args: { _from, _to, _value },
+        } = result.logs[0];
+        event.should.equal("Transfer");
+        _from
+          .toString()
+          .should.equal(deployer.toString(), "from is not correct");
+        _to.toString().should.equal(receiver.toString(), "to is not correct");
+        _value
+          .toString()
+          .should.equal(amount.toString(), "value is not correct");
+      });
+    });
+
+    describe("failure", () => {
+      it("rejects insufficient amounts", async () => {
+        const invalideAmount = tokens(10000000);
+        await token
+          .transferFrom(deployer, receiver, invalideAmount, { from: exchange })
+          .should.be.rejectedWith(EVM_REVERT);
+      });
+
+      it("rejects invalid recepients", async () => {
+        await token.transferFrom(deployer, 0x0, amount, { from: exchange })
+          .should.be.rejected;
+      });
+    });
+  });
 });
