@@ -1,4 +1,4 @@
-import { EVM_REVERT, ETHER_ADDRESS, tokens } from "./helper";
+import { EVM_REVERT, ETHER_ADDRESS, tokens, ether } from "./helper";
 
 // eslint-disable-next-line no-undef
 const Token = artifacts.require("./Token");
@@ -32,6 +32,44 @@ contract("Exchange", ([deployer, feeAccount, user1]) => {
     it("tracks the fee percent", async () => {
       const result = await exchange.feePercent();
       result.toNumber().should.equal(feePercent);
+    });
+  });
+
+  describe("fallback", () => {
+    it("reverts when ETHER is sent", async () => {
+      await exchange
+        .sendTransaction({ value: 1, from: user1 })
+        .should.be.rejectedWith(EVM_REVERT);
+    });
+  });
+
+  describe("depositing Ether", () => {
+    let result;
+    const amount = ether(1);
+
+    beforeEach(async () => {
+      result = await exchange.depositEther({ from: user1, value: amount });
+    });
+
+    it("tracks the Ether deposit", async () => {
+      const balance = await exchange.tokens(ETHER_ADDRESS, user1);
+      balance.toString().should.equal(amount.toString());
+    });
+
+    it("emits a Deposit event", async () => {
+      const {
+        event,
+        args: { _token, _user, _amount, _balance },
+      } = result.logs[0];
+      event.should.equal("Deposit");
+      _token.should.equal(ETHER_ADDRESS, "token address is not correct");
+      _user.should.equal(user1, "user is not correct");
+      _amount
+        .toString()
+        .should.equal(amount.toString(), "amount is not correct");
+      _balance
+        .toString()
+        .should.equal(amount.toString(), "amount is not correct");
     });
   });
 
