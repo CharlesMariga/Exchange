@@ -126,4 +126,46 @@ contract("Exchange", ([deployer, feeAccount, user1]) => {
       });
     });
   });
+
+  describe("withdrawing Ether", () => {
+    let result;
+    const amount = ether(1);
+
+    beforeEach(async () => {
+      await exchange.depositEther({ from: user1, value: amount });
+    });
+
+    describe("success", () => {
+      beforeEach(async () => {
+        result = await exchange.withdrawEther(amount, { from: user1 });
+      });
+
+      it("withdraws Ether funds", async () => {
+        const balance = await exchange.tokens(ETHER_ADDRESS, user1);
+        balance.toString().should.equal("0");
+      });
+
+      it("emits a Withdraw event", async () => {
+        const {
+          event,
+          args: { _token, _user, _amount, _balance },
+        } = result.logs[0];
+        event.should.equal("Withdraw");
+        _token.should.equal(ETHER_ADDRESS, "token address is not correct");
+        _user.should.equal(user1, "user is not correct");
+        _amount
+          .toString()
+          .should.equal(amount.toString(), "amount is not correct");
+        _balance.toString().should.equal("0", "amount is not correct");
+      });
+    });
+
+    describe("failure", () => {
+      it("rejects withdrawal for insufficient balances", async () => {
+        result = await exchange
+          .withdrawEther(ether(100), { from: user1 })
+          .should.be.rejectedWith(EVM_REVERT);
+      });
+    });
+  });
 });
