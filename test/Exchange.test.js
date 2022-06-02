@@ -168,4 +168,66 @@ contract("Exchange", ([deployer, feeAccount, user1]) => {
       });
     });
   });
+
+  describe("withdrawing tokens", () => {
+    let amount = tokens(10);
+    let result;
+
+    describe("success", () => {
+      beforeEach(async () => {
+        // Deposit some tokens
+        await token.approve(exchange.address, amount, { from: user1 });
+        await exchange.depositToken(token.address, amount, { from: user1 });
+
+        // Withdraw tokens
+        result = await exchange.withdrawToken(token.address, amount, {
+          from: user1,
+        });
+      });
+
+      it("withdraws token funds", async () => {
+        const balance = await exchange.tokens(token.address, user1);
+        balance.toString().should.equal("0");
+      });
+
+      it("emits a Withdraw event", async () => {
+        const {
+          event,
+          args: { _token, _user, _amount, _balance },
+        } = result.logs[0];
+        event.should.equal("Withdraw");
+        _token.should.equal(token.address, "token address is not correct");
+        _user.should.equal(user1, "user is not correct");
+        _amount
+          .toString()
+          .should.equal(amount.toString(), "amount is not correct");
+        _balance.toString().should.equal("0", "amount is not correct");
+      });
+    });
+
+    describe("failure", () => {
+      it("rejects Ether withdrawals", async () => {
+        exchange
+          .withdrawToken(ETHER_ADDRESS, tokens(10), { from: user1 })
+          .should.be.rejectedWith(EVM_REVERT);
+      });
+
+      it("fails for insufficient balances", async () => {
+        exchange
+          .withdrawToken(token.address, tokens(10), { from: user1 })
+          .should.be.rejectedWith(EVM_REVERT);
+      });
+    });
+
+    describe("checking balances", () => {
+      beforeEach(async () => {
+        await exchange.depositEther({ from: user1, value: ether(1) });
+      });
+
+      it("returns user balance", async () => {
+        const balance = await exchange.balanceOf(ETHER_ADDRESS, user1);
+        balance.toString().should.equal(ether(1).toString());
+      });
+    });
+  });
 });

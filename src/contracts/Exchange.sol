@@ -37,7 +37,7 @@ contract Exchange {
   function withdrawEther(uint _amount) payable public {
     require(tokens[ETHER][msg.sender] >= _amount);
     tokens[ETHER][msg.sender] = tokens[ETHER][msg.sender].sub(_amount);
-    msg.sender.transfer(_amount);
+    payable(msg.sender).transfer(_amount);
     emit Withdraw(ETHER, msg.sender, _amount, tokens[ETHER][msg.sender]);
   }
 
@@ -49,7 +49,14 @@ contract Exchange {
   }
 
   function withdrawToken(address _token, uint256 _amount) public {
-    tokens[ETHER][msg.sender] = tokens[ETHER][msg.sender].sub(_amount);
+    require(_token != ETHER);
+    require(tokens[_token][msg.sender] >= _amount);
+    tokens[_token][msg.sender] = tokens[_token][msg.sender].sub(_amount);
     require(Token(_token).transfer(msg.sender, _amount));
+    emit Withdraw(_token, msg.sender, _amount, tokens[_token][msg.sender]);
+  }
+
+  function balanceOf(address _token, address _user) public view returns (uint256) {
+    return tokens[_token][_user];
   }
 } 
