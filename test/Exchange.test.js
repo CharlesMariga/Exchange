@@ -8,7 +8,7 @@ const Exchange = artifacts.require("./Exchange");
 require("chai").use(require("chai-as-promised")).should();
 
 // eslint-disable-next-line no-undef
-contract("Exchange", ([deployer, feeAccount, user1]) => {
+contract("Exchange", ([deployer, feeAccount, user1, user2]) => {
   let exchange;
   let token;
   const feePercent = 10;
@@ -227,6 +227,158 @@ contract("Exchange", ([deployer, feeAccount, user1]) => {
       it("returns user balance", async () => {
         const balance = await exchange.balanceOf(ETHER_ADDRESS, user1);
         balance.toString().should.equal(ether(1).toString());
+      });
+    });
+
+    describe("making orders", () => {
+      let result;
+
+      beforeEach(async () => {
+        result = await exchange.makeOrder(
+          token.address,
+          tokens(1),
+          ETHER_ADDRESS,
+          ether(1),
+          { from: user1 }
+        );
+      });
+
+      it("tracks the newly created order", async () => {
+        const orderCount = await exchange.orderCount();
+        orderCount.toString().should.equal("1");
+        const {
+          id,
+          user,
+          tokenGet,
+          amountGet,
+          tokenGive,
+          amountGive,
+          timestamp,
+        } = await exchange.orders("1");
+        id.toString().should.equal("1", "id is not correct");
+        user.should.equal(user1, "user is not correct");
+        tokenGet.should.equal(token.address, "tokenGet is not correct");
+        amountGet
+          .toString()
+          .should.equal(tokens(1).toString(), "amountGet is not correct");
+        tokenGive.should.equal(ETHER_ADDRESS, "tokenGive is not correct");
+        amountGive
+          .toString()
+          .should.equal(ether(1).toString(), "amountGive is not correct");
+        timestamp
+          .toString()
+          .length.should.be.at.least(1, "timestamp is not perfect");
+      });
+
+      it("emits and 'Order' event", async () => {
+        const {
+          event,
+          args: {
+            _id,
+            _user,
+            _tokenGet,
+            _amountGet,
+            _tokenGive,
+            _amountGive,
+            _timestamp,
+          },
+        } = result.logs[0];
+        event.should.equal("Order", "event name is not correct");
+        _id.toString().should.equal("1", "id is not correct");
+        _user.toString().should.equal(user1, "user is not correct");
+        _tokenGet
+          .toString()
+          .should.equal(token.address, "tokeGet is not correct");
+        _amountGet
+          .toString()
+          .should.equal(tokens(1).toString(), "amountGet is not correct");
+        _tokenGive
+          .toString()
+          .should.equal(ETHER_ADDRESS, "tokenGive is not correct");
+        _amountGive
+          .toString()
+          .should.equal(ether(1).toString(), "amountGive is not correct");
+        _timestamp
+          .toString()
+          .length.should.be.at.least(1, "timestamp is not perfect");
+      });
+    });
+
+    describe("order actions", () => {
+      beforeEach(async () => {
+        // user1 deposits ether
+        await exchange.depositEther({ from: user1, value: ether(1) });
+        // user1 makes an order to buy tokens with Ether
+        await exchange.makeOrder(
+          token.address,
+          tokens(1),
+          ETHER_ADDRESS,
+          ether(1),
+          { from: user1 }
+        );
+      });
+
+      describe("cancelling orders", () => {
+        let result;
+
+        describe("success", () => {
+          beforeEach(async () => {
+            result = await exchange.cancelOrder("1", { from: user1 });
+          });
+
+          it("updates cancelled orders", async () => {
+            const orderCancelled = await exchange.orderCancelled(1);
+            orderCancelled.should.equal(true);
+          });
+
+          it("emits and 'Cancel' event", async () => {
+            const {
+              event,
+              args: {
+                _id,
+                _user,
+                _tokenGet,
+                _amountGet,
+                _tokenGive,
+                _amountGive,
+                _timestamp,
+              },
+            } = result.logs[0];
+            event.should.equal("Cancel", "event name is not correct");
+            _id.toString().should.equal("1", "id is not correct");
+            _user.toString().should.equal(user1, "user is not correct");
+            _tokenGet
+              .toString()
+              .should.equal(token.address, "tokeGet is not correct");
+            _amountGet
+              .toString()
+              .should.equal(tokens(1).toString(), "amountGet is not correct");
+            _tokenGive
+              .toString()
+              .should.equal(ETHER_ADDRESS, "tokenGive is not correct");
+            _amountGive
+              .toString()
+              .should.equal(ether(1).toString(), "amountGive is not correct");
+            _timestamp
+              .toString()
+              .length.should.be.at.least(1, "timestamp is not perfect");
+          });
+        });
+
+        describe("failure", () => {
+          it("rejects invalid order ids", async () => {
+            const invalidOrderId = 99999;
+            await exchange
+              .cancelOrder(invalidOrderId, { from: user1 })
+              .should.be.rejectedWith(EVM_REVERT);
+          });
+
+          it("rejects unauthorized cancelations", async () => {
+            await exchange
+              .cancelOrder("1", { from: user2 })
+              .should.be.rejectedWith(EVM_REVERT);
+          });
+        });
       });
     });
   });
